@@ -1,0 +1,35 @@
+# = leboncoin
+#
+# == Travis environment
+#
+git:
+  # Do not get Genesis submodules and failing tests we do not manage
+  submodules: false
+
+sudo: required
+services:
+  - docker
+
+language: python
+python:
+- '3.6'
+
+
+# == Build lifecycle
+#
+install:
+- echo "---> Check Docker version" && docker version
+- echo "---> Installing CI utils" && pip install docker-compose
+- echo "---> Checking Python installed packages" && pip list
+
+script:
+  # - make lint
+  - make test
+
+
+# Build docker image on PUSH only
+# * There is already an option in Travis UI to build PRs
+# without this config, the branch is built twice ...
+branches:
+  only:
+  - master
