@@ -1,0 +1,77 @@
+version: '2'
+
+# = Source:
+#
+# https://github.com/puppetlabs/puppet-in-docker-examples/tree/master/compose
+
+services:
+  puppet:
+    container_name: puppet
+    # For SSL Client side authentication
+    hostname: puppet
+    domainname: 'mydomain.com'
+    image: puppet/puppetserver:2.7.2
+    ports:
+      - 8140
+    volumes:
+      # Persisted data accross restart of container
+      - puppetserver-ssl:/etc/puppetlabs/puppetserver/ssl/
+      - puppetserver-data:/opt/puppetlabs/server/data/puppetserver/
+      # Files overwrite
+      # * API Auth Config
+      - ./docker-compose/puppetserver/conf/auth.conf:/etc/puppetlabs/puppetserver/conf.d/auth.conf
+      # * SSL CA
+      - ./docker-compose/puppetserver/ssl/ca/ca_crl.pem:/etc/puppetlabs/puppet/ssl/ca/ca_crl.pem
+      - ./docker-compose/puppetserver/ssl/ca/ca_crt.pem:/etc/puppetlabs/puppet/ssl/ca/ca_crt.pem
+      - ./docker-compose/puppetserver/ssl/ca/ca_key.pem:/etc/puppetlabs/puppet/ssl/ca/ca_key.pem
+      - ./docker-compose/puppetserver/ssl/ca/ca_pub.pem:/etc/puppetlabs/puppet/ssl/ca/ca_pub.pem
+      - ./docker-compose/puppetserver/ssl/ca/inventory.txt:/etc/puppetlabs/puppet/ssl/ca/inventory.txt
+      - ./docker-compose/puppetserver/ssl/ca/serial:/etc/puppetlabs/puppet/ssl/ca/serial
+      - ./docker-compose/puppetserver/ssl/ca/signed/admin1.mydomain.com.pem:/etc/puppetlabs/puppet/ssl/ca/signed/admin1.mydomain.com.pem
+      - ./docker-compose/puppetserver/ssl/ca/signed/puppet.mydomain.com.pem:/etc/puppetlabs/puppet/ssl/ca/signed/puppet.mydomain.com.pem
+      # * SSL Certs from puppetserver node
+      - ./docker-compose/puppetserver/ssl/certs/ca.pem:/etc/puppetlabs/puppetserver/ssl/certs/ca.pem
+      - ./docker-compose/puppetserver/ssl/certs/puppet.mydomain.com.pem:/etc/puppetlabs/puppetserver/ssl/certs/puppet.mydomain.com.pem
+      - ./docker-compose/puppetserver/ssl/crl.pem:/etc/puppetlabs/puppetserver/ssl/crl.pem
+      - ./docker-compose/puppetserver/ssl/private_keys/puppet.mydomain.com.pem:/etc/puppetlabs/puppetserver/ssl/private_keys/puppet.mydomain.com.pem
+      - ./docker-compose/puppetserver/ssl/public_keys/puppet.mydomain.com.pem:/etc/puppetlabs/puppetserver/ssl/public_keys/puppet.mydomain.com.pem
+
+    # In some cases unqualified hostnames can have the .local suffix
+    # added, I've seen this under Docker of Mac Beta for instance.
+    # Due to needing to access PuppetDB on same hostame as signed in the
+    # certificate you may need to uncommant the following lines
+    #environment:
+    #  - PUPPETDB_SERVER_URLS=https://puppetdb.local:8081
+    #links:
+    #  - puppetdb:puppetdb.local
+
+  puppetdb:
+    # For SSL Client side authentication
+    hostname: puppetdb
+    domainname: 'mydomain.com'
+    image: puppet/puppetdb:4.4.0
+    ports:
+      - 8080
+      - 8081
+    volumes:
+      - puppetdb-ssl:/etc/puppetlabs/puppet/ssl/
+    links:
+      - puppetdb-postgres:postgres
+
+  puppetdb-postgres:
+    #container_name: postgres
+    image: puppet/puppetdb-postgres
+    environment:
+      - POSTGRES_PASSWORD=puppetdb
+      - POSTGRES_USER=puppetdb
+    expose:
+      - 5432
+    volumes:
+      - postgres-data:/var/lib/postgresql/data/
+
+
+volumes:
+  puppetserver-data:
+  puppetserver-ssl:
+  puppetdb-ssl:
+  postgres-data:

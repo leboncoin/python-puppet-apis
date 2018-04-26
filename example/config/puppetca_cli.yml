@@ -1,0 +1,9 @@
+---
+puppetserver:
+  server: 'puppet-ca'
+  port: 8140
+
+ssl:
+  client_name: 'admin2.mydomain.com'
+  client_cert: ''
+  client_key: ''

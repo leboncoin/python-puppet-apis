@@ -1,0 +1,23 @@
+FROM python:3.6.4-alpine
+
+# Python Updated
+RUN echo '* Installing OS dependencies' \
+  && apk add --update --no-cache \
+    build-base \
+    openssl-dev \
+    libffi-dev \
+  && echo '* Upgrade PIP' \
+  && pip install --upgrade pip
+
+WORKDIR /app
+ENTRYPOINT ["/app/bin/puppet-ca-cli"]
+CMD ["-h"]
+
+COPY ./ ./
+RUN echo '* Installing Python module' \
+  && mv README.md ../ \
+  && pip install --editable . \
+  && apk del \
+    build-base \
+    openssl-dev \
+    libffi-dev

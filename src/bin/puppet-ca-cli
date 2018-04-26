@@ -1,0 +1,238 @@
+#!/usr/bin/env python3
+#
+#
+# Based on work of Courtney Cotton <cotton@cottoncourtney.com> 06-25-2014
+#
+# Libraries/Modules
+import argparse
+import colorlog, logging
+import os, sys
+import pprint
+
+from configmanager import Config
+from puppet_apis import PuppetCaCli
+
+
+# == Helper
+#
+def init_logger():
+    # Color yeah !
+    formatter = colorlog.ColoredFormatter(
+        "%(log_color)s%(message)s",
+        datefmt=None,
+        reset=True,
+        log_colors={
+            'DEBUG':    'bold_blue',
+            'INFO':     'green',
+            'WARNING':  'yellow',
+            'ERROR':    'bold_red',
+            'CRITICAL': 'red,bg_white',
+        },
+        secondary_log_colors={},
+        style='%'
+    )
+
+    # Configure Logger for STDOUT
+    handler = colorlog.StreamHandler(sys.stdout)
+    handler.setFormatter(formatter)
+
+    logger = colorlog.getLogger('puppet-ca-cli')
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    return logger
+
+
+def init_parsers():
+    # This section will parse the flags available via command line.
+    parser = argparse.ArgumentParser(description='PuppetCA CLI to administrate a puppet-ca pki')
+    subparsers = parser.add_subparsers(title='command', dest='command')
+
+    # Common CLI args (optional)
+    parser.add_argument("--debug", help="Debug log level of ouput", action="store_true")
+
+    parent_parser = argparse.ArgumentParser(add_help=False)
+    parent_parser.add_argument("--debug", help="Debug log level of ouput", action="store_true")
+    parent_parser.add_argument("--config", help="PuppetCA CLI config file", action="store", nargs='?', default="")
+    parent_parser.add_argument("--server", help="Puppet CA server address", action="store", nargs='?', default="")
+    parent_parser.add_argument("--port", help="Puppet CA server port", action="store", nargs='?')
+    parent_parser.add_argument("--cert", help="Client cert PKI file", action="store", nargs='?', default="")
+    parent_parser.add_argument("--key", help="Client key PKI file", action="store", nargs='?', default="")
+
+    # Sub command
+    parser_cert = subparsers.add_parser('cert', parents = [parent_parser], help='Manage puppet-ca pki')
+    subparsers_cert = parser_cert.add_subparsers(title='action', dest='cert_action')
+    # SubSub commands
+    subparsers_cert_generate = subparsers_cert.add_parser('generate', parents = [parent_parser], help='Generate a client certificate and submit the CSR to the puppetserver')
+    subparsers_cert_generate.add_argument("--ssldir", help="Directory to store generate files", action="store", default="./puppetca_cli_ssl")
+    subparsers_cert_generate.add_argument("clientname", help="Provide client cert FQDN", action="store")
+
+    subparsers_cert_get = subparsers_cert.add_parser('get', parents = [parent_parser], help='Get a client certificate from the puppetserver')
+    subparsers_cert_get.add_argument("--ssldir", help="Directory to store generate files", action="store", default="./puppetca_cli_ssl")
+    subparsers_cert_get.add_argument("clientname", help="Provide client cert FQDN", action="store")
+
+    subparsers_cert_status = subparsers_cert.add_parser('status', parents = [parent_parser], help='Get the status of the Client name')
+    subparsers_cert_status.add_argument("clientname", help="Provide client cert FQDN", action="store")
+
+    subparsers_cert_sign = subparsers_cert.add_parser('sign', parents = [parent_parser], help='Sign the client certificate')
+    subparsers_cert_sign.add_argument("clientname", help="Provide client cert FQDN", action="store")
+
+    subparsers_cert_delete = subparsers_cert.add_parser('delete', parents = [parent_parser], help='Delete the client certificate')
+    subparsers_cert_delete.add_argument("clientname", help="Provide client cert FQDN", action="store")
+
+    subparsers_cert_revoke = subparsers_cert.add_parser('revoke', parents = [parent_parser], help='Revoke the client certificate')
+    subparsers_cert_revoke.add_argument("clientname", help="Provide client cert FQDN", action="store")
+
+    # Sub commands
+    parser_config = subparsers.add_parser('config', parents = [parent_parser], help='Manage cli config')
+    subparsers_config = parser_config.add_subparsers(title='action', dest='config_action')
+    subparsers_config_show    = subparsers_config.add_parser('show',    parents = [parent_parser], help='Show the running config')
+    subparsers_config_install = subparsers_config.add_parser('install', parents = [parent_parser], help='Install the signed certficate in the cli config dir')
+
+    subparsers_config_init    = subparsers_config.add_parser('init',    parents = [parent_parser], help='Initialize the config')
+    subparsers_config_init.add_argument("clientname", help="Provide client cert FQDN", action="store")
+    subparsers_config_init.add_argument("-s", "--san", help="Subject Alternate Name", action="store", nargs='*', default="")
+
+    return parser
+
+
+def init_config(args):
+    logger.info("---> Initializing config")
+
+    # Load config files
+    if args.config:
+        config_file = args.config
+        logger.debug("{} - Config file provided on cli: {}".format(__name__, config_file))
+    else:
+        config_file = './puppetca_cli/conf.yml'
+        logger.warning("     * Using config file default location: {}".format(config_file))
+
+    # Default values
+    config_dir = os.path.abspath( os.path.dirname(config_file) )
+
+    if args.command == 'config' and args.config_action == 'init':
+        clientname = args.clientname
+        schema = {
+            'puppetserver': {
+                'server': 'puppet-ca',
+                'port': 8140,
+            },
+            'ssl': {
+                'client_name': clientname,
+                'client_cert': os.path.join(config_dir, 'ssl/certs/{}.pem'.format(clientname)),
+                'client_key': os.path.join(config_dir, 'ssl/private_keys/{}.pem'.format(clientname))
+            }
+        }
+    else:
+        schema = {
+            'puppetserver': {
+                'server': '',
+                'port': None,
+            },
+            'ssl': {
+                'client_name': '',
+                'client_cert': '',
+                'client_key': ''
+            }
+        }
+    logger.debug("{} - Configmanager: Schema: {}".format(__name__, schema))
+
+    # Create config object
+    logger.info("     * Loading config from file")
+    config = Config(schema=schema,
+                    load_sources=[config_file],
+                    auto_load=True)
+    logger.debug("{} - Configmanager: Config_dict: {}".format(__name__, config.dump_values()))
+
+    # CLI priority
+    logger.debug("     * Using cli arguments")
+    if args.cert:
+        config.ssl.client_cert.set(args.cert)
+    if args.key:
+        config.ssl.client_key.set(args.key)
+    if args.server:
+        config.puppetserver.server.set(args.server)
+    if args.port:
+        config.puppetserver.port.set(args.port)
+
+    config_dict = config.dump_values()
+    logger.debug("{} - Configmanager: Config_dict (After CLI parsing): {}".format(__name__, config_dict))
+
+    if args.command == 'config' and args.config_action == 'init':
+        logger.info("     * Saving config to disk")
+        save_config(config, config_file)
+
+    return config_dict
+
+
+def save_config(config, config_file):
+    # FileSystem helpers
+    config_dir = os.path.dirname(config_file)
+    if not os.path.exists(config_dir) or not os.path.isdir(config_dir):
+        logger.info("     * Creating missing directory {}".format(config_dir))
+        os.makedirs(config_dir, mode=0o777, exist_ok=False)
+
+    if not os.path.exists(config_file):
+        open(config_file, 'a').close()
+
+    # Write the config
+    return(config.yaml.dump(config_file, with_defaults=True))
+
+
+# == Run
+#
+if __name__ == '__main__':
+    logger = init_logger()
+    parser = init_parsers()
+
+    # Parse base agrs
+    args = parser.parse_args()
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+
+    logger.debug("Args: {}".format(args))
+
+    # Display help by default
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
+
+    # Display Config
+    config = init_config(args)
+    if args.command == 'config' and args.config_action == 'show':
+        logger.info("---> Config:")
+        pprint.pprint(config)
+        sys.exit(1)
+
+    else:
+        logger.info("---> Initializing PuppetCaCli Object")
+        cli = PuppetCaCli(config)
+
+        # Config
+        if args.command == 'config' and args.config_action == 'init':
+            cli.init(args.clientname,
+                     args.san)
+
+        elif args.command == 'config' and args.config_action == 'install':
+            cli.install(config['ssl']['client_name'])
+
+        # Cert Management
+        elif args.command == 'cert' and args.cert_action == 'generate':
+            cli.generate(args.clientname,
+                         args.ssldir)
+
+        elif args.command == 'cert' and args.cert_action == 'get':
+            cli.get(args.clientname,
+                    args.ssldir)
+
+        elif args.command == 'cert' and args.cert_action == 'status':
+            cli.status(args.clientname)
+
+        elif args.command == 'cert' and args.cert_action == 'sign':
+            cli.sign(args.clientname)
+
+        elif args.command == 'cert' and args.cert_action == 'delete':
+            cli.delete(args.clientname)
+
+        elif args.command == 'cert' and args.cert_action == 'revoke':
+            cli.revoke(args.clientname)

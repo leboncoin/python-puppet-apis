@@ -1,0 +1,21 @@
+# Dev
+.vagrant/
+
+# Files
+*.tar.gz
+*.pyc
+.cache
+.pytest_cache/
+eggs
+.eggs
+*.egg-info/
+build/
+dist/
+
+# Generic tmps
+data/
+tmp/
+*.log
+
+# Keys
+**/config/ssl/
