@@ -1,52 +1,25 @@
 import os
 import pytest
-import requests
-from requests.exceptions import (
-    ConnectionError,
-)
 
+from helpers.utils import is_responsive, log_pytest, run_puppet_agent
 from puppet_apis import PuppetCa, PuppetDb
 
 
 # == Config
 #
-test_dir = os.path.dirname(os.path.realpath(__file__))
+test_root_dir = os.path.dirname(os.path.realpath(__file__))
+clientname='admin1.mydomain.com'
+
 CA_CONFIG = {
-    "ca_cert": "{}/../../tests/docker-compose/puppet_apis/ssl/certs/ca.pem".format(test_dir),
-    "client_cert": "{}/../../tests/docker-compose/puppet_apis/ssl/certs/admin1.mydomain.com.pem".format(test_dir),
-    "client_key": "{}/../../tests/docker-compose/puppet_apis/ssl/private_keys/admin1.mydomain.com.pem".format(test_dir)
+    "ca_cert": "{}/../../tests/docker-compose/puppet_apis/ssl/certs/ca.pem".format(test_root_dir),
+    "client_cert": "{}/../../tests/docker-compose/puppet_apis/ssl/certs/{}.pem".format(test_root_dir, clientname),
+    "client_key": "{}/../../tests/docker-compose/puppet_apis/ssl/private_keys/{}.pem".format(test_root_dir, clientname)
 }
 
 NODE1='node01.mydomain.com'
 NODE2='node02.mydomain.com'
 NODE3='node03.mydomain.com'
 
-
-# == Helpers
-#
-def is_responsive(url):
-    """Check if something responds to ``url``."""
-    try:
-        response = requests.get(url, verify=False)
-        print(response.status_code)
-        if response.status_code == 200:
-            return True
-    except ConnectionError:
-        return False
-
-
-def log_pytest(message):
-    print ("====> PYTEST: {}".format(message))
-
-
-def run_puppet_agent(nodename):
-    log_pytest("Run Puppet agent Node: {}".format(nodename))
-    return os.system("""
-    docker run --rm --net puppetapis_default\
-               puppet/puppet-agent-debian agent \
-                    --onetime --no-daemonize \
-                    --certname={};
-    """.format(nodename))
 
 
 # == Fixtures

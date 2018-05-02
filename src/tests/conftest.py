@@ -4,7 +4,9 @@
 #
 import os
 import pytest
+import sys
 
+sys.path.append(os.path.join(os.path.dirname(__file__), 'helpers'))
 
 @pytest.fixture(scope='session')
 def docker_compose_file(pytestconfig):

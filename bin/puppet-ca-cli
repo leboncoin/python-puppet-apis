@@ -13,7 +13,7 @@ set -o nounset
 #
 SCRIPT_NAME=$(basename $(readlink -e ${BASH_SOURCE[0]}))
 
-DOCKER_CONTEXT="$(dirname $(readlink -e ${BASH_SOURCE[0]}))/../../src"
+DOCKER_CONTEXT="$(dirname $(readlink -e ${BASH_SOURCE[0]}))/../src"
 
 DOCKER_REGISTRY=''    # Docker Hub
 DOCKER_REPOSITORY='leboncoin'                  # Docker Library images

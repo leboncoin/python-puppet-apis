@@ -1,46 +1,17 @@
 import os
 import pytest
-import requests
-from requests.exceptions import (
-    ConnectionError,
-)
 
+from helpers.utils import is_responsive, log_pytest, run_puppet_agent
 from puppet_apis import PuppetCa
 from puppet_apis import PuppetCaCli
 
 
 # == Config
 #
-test_dir = os.path.dirname(os.path.realpath(__file__))
+test_root_dir = os.path.dirname(os.path.realpath(__file__))
 clientname='admin2.mydomain.com'
+NODE4='node04.mydomain.com'
 
-NODE1='node01.mydomain.com'
-
-
-# == Helpers
-#
-def is_responsive(url):
-    """Check if something responds to ``url``."""
-    try:
-        response = requests.get(url, verify=False)
-        print(response.status_code)
-        if response.status_code == 200:
-            return True
-    except ConnectionError:
-        return False
-
-
-def log_pytest(message):
-    print ("====> PYTEST: {}".format(message))
-
-
-def run_puppet_agent(nodename):
-    return os.system("""
-    docker run --rm --net puppetapis_default\
-               puppet/puppet-agent-debian agent \
-                    --onetime --no-daemonize \
-                    --certname={};
-    """.format(nodename))
 
 
 # == Fixtures
@@ -68,8 +39,8 @@ def puppetca_cli_config(docker_ip, docker_services):
         },
         'ssl': {
             'client_name': clientname,
-            'client_cert': '{}/../../tests/docker-compose/puppetca_cli/ssl/certs/{}.pem'.format(test_dir, clientname),
-            'client_key': '{}/../../tests/docker-compose/puppetca_cli/ssl/private_keys/{}.pem'.format(test_dir, clientname)
+            'client_cert': '{}/../../tests/docker-compose/puppetca_cli/ssl/certs/{}.pem'.format(test_root_dir, clientname),
+            'client_key': '{}/../../tests/docker-compose/puppetca_cli/ssl/private_keys/{}.pem'.format(test_root_dir, clientname)
         }
     }
 
@@ -107,7 +78,7 @@ def test_puppetdb_alive(docker_ip, docker_services):
 # Populating the stack
 #
 def test_puppetca_run_puppet_agents_node():
-    assert run_puppet_agent(NODE1) == 0
+    assert run_puppet_agent(NODE4) == 0
 
 
 # == PuppetCA CLI:
@@ -141,40 +112,47 @@ def test_puppetca_cli_status_success(puppetca_cli_config, puppetca_client):
     config = puppetca_cli_config
     cli = PuppetCaCli(config)
 
-    status = cli.status(hostname=NODE1)
+    status = cli.status(hostname=NODE4)
     assert status
 
-    puppetca_response = puppetca_client.status(NODE1)
+    puppetca_response = puppetca_client.status(NODE4)
     assert puppetca_response == status
 
 
 # === Admin actions: signing, revoking and deleting certificate
-#TODO
-# def test_puppetca_cli_revoke(puppetca_cli_config):
-#     config = puppetca_cli_config
-#     cli = PuppetCaCli(config)
 #
-#     assert cli.revoke(hostname=NODE1)
-#
-#     puppetca_response = puppetca_client.status(clientname)
-#     assert puppetca_response['state'] == 'revoked'
+def test_puppetca_cli_revoke(puppetca_cli_config, puppetca_client):
+    config = puppetca_cli_config
+    cli = PuppetCaCli(config)
+
+    assert cli.revoke(hostname=NODE4) == True
+
+    status = cli.status(hostname=NODE4)
+    assert 'state' in status
+    assert status['state'] == 'revoked'
+
+    puppetca_response = puppetca_client.status(NODE4)
+    assert puppetca_response['state'] == status['state']
 
 
-# def test_puppetca_cli_delete(puppetca_cli_config):
-#     config = puppetca_cli_config
-#     cli = PuppetCaCli(config)
-#
-#     assert cli.delete(hostname=NODE1)
-#
-#     puppetca_response = puppetca_client.status(clientname)
-#     assert puppetca_response == {}
+def test_puppetca_cli_delete(puppetca_cli_config, puppetca_client):
+    config = puppetca_cli_config
+    cli = PuppetCaCli(config)
+
+    assert cli.delete(hostname=NODE4) == True
+
+    status = cli.status(hostname=NODE4)
+    assert status == False
+
+    puppetca_response = puppetca_client.status(NODE4)
+    assert puppetca_response == {}
 
 
 # def test_puppetca_cli_sign(puppetca_cli_config):
 #     config = puppetca_cli_config
 #     cli = PuppetCaCli(config)
 #
-#     assert cli.sign(hostname=NODE1)
+#     assert cli.sign(hostname=NODE4)
 #
 #     puppetca_response = puppetca_client.status(clientname)
 #     assert 'state' in puppetca_response
