@@ -12,4 +12,4 @@ from .puppetbase import PuppetBaseAPI
 from .puppetca import PuppetCa, PuppetCaException
 from .puppetdb import PuppetDb
 
-from .puppetcacli import PuppetCaCli
+from .puppetcacli import PuppetCaCli, PuppetCaCliException

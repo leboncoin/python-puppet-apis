@@ -358,3 +358,23 @@ class PuppetCaCli:
 
         except PuppetCaException:
             pass
+
+
+    def revoke(self, hostname):
+        cert_status = self.status(hostname)
+        if 'state' in cert_status and cert_status['state'] == 'signed':
+            self.logger.info("     * Revoking certficate for {}".format(hostname))
+            return bool(self.puppet_ca_client.revoke(hostname))
+
+        self.logger.info("     * Certifiate for node {} is not signed ({})".format(hostname, cert_status['state']))
+        return False
+
+
+    def delete(self, hostname):
+        cert_status = self.status(hostname)
+        if 'state' in cert_status and cert_status['state'] == 'revoked':
+            self.logger.info("     * Deleting certficate for {}".format(hostname))
+            return bool(self.puppet_ca_client.delete(hostname))
+
+        self.logger.info("     * Certifiate for node {} is not revoked yet ({})".format(hostname, cert_status['state']))
+        return False
