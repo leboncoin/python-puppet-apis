@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+#
+#
+# == Bash options
+#
+set -o errexit
+set -o nounset
+set -o pipefail
+
+
+
+# == Variables
+#
+SCRIPT_NAME=$(readlink -e ${BASH_SOURCE[0]})
+
+
+# == Main
+#
+echo "===> ${SCRIPT_NAME}: Start"
+
+docker run --rm \
+  --log-driver none \
+  -u $(id --user) \
+  --volume=${HOME}:${HOME} \
+  --volume=/etc/passwd:/etc/passwd:ro \
+  --volume=/etc/group:/etc/group:ro \
+  --volume=/etc/shadow:/etc/shadow:ro \
+  --volume="${HOME}/.travis:${HOME}/.travis" \
+  --volume=$(pwd):/repo \
+  --workdir /repo \
+  jess/travis "$@"
+
+echo "===> ${SCRIPT_NAME}: Done"

@@ -1,35 +1,56 @@
-# = leboncoin
-#
-# == Travis environment
-#
 git:
-  # Do not get Genesis submodules and failing tests we do not manage
   submodules: false
 
 sudo: required
 services:
-  - docker
+- docker
 
+
+# == Environment setup
+#
 language: python
 python:
 - '3.6'
 
-
-# == Build lifecycle
-#
 install:
 - echo "---> Check Docker version" && docker version
 - echo "---> Installing CI utils" && pip install docker-compose
 - echo "---> Checking Python installed packages" && pip list
 
+
+# == Build
+#
 script:
-  # - make lint
-  - make test
+#- make lint
+- make test
 
-
-# Build docker image on PUSH only
-# * There is already an option in Travis UI to build PRs
+# There is already an option in Travis UI to build PRs
 # without this config, the branch is built twice ...
 branches:
   only:
   - master
+
+
+
+# == Conditional deploy
+#
+deploy:
+  # Every merge are deployed on Test-Pypi
+  provider: pypi
+  user: leboncoin
+  password:
+    # pypi_test_password
+    secure: sv0vWgAKsJEiMFyvaIDpBeKgm0htk+7OKgmOXz/YfXyDsLMDkoI/V8NAWs99F6eUiPgQ6os4rBPrqTJNh8AzoBarbsJqUHo6QCbqL2R8bgSK0PIJ/paZZwpJRSuZHzAKX9s1FRyuHiYxPIzqU74KHhd9RxQx8Ds45w2scm2ePOmlkiNet9ATndZ5HwZbJtd4BY95exiiJu9bRxu28UAEF1CAjbNKJRjUz5E+/O6znVFjth21LvXbgdmAWbO6GVaS3Xe03ngDLHEkIsctyBt6TIOIu/eeKuCmUTS/Mc4jacUOMibckYPx3iPHKmJY2jV0x08eFXbX36B6kW9W3/sAgTL018fQs4rAGSYfzscT0ScaLhc9bwy0wAFUUbvCOt3OAzS8gWDBpbgf+dN+Q1+rORJ1lTmmN7XQgL+KrGHHxmJpAXZdv73zjlfPZn+bKXvtWJlHmibWVi14Y3tV83ER99XUn3VuQkrDkqi0j4XpnPaxdWSQ7xA0/Xo8iavDdtxz3OAiL2c19mC8FDZg6QGNHmxqv+U4W0GL5J2bUQEvAmqiHtmmAVv4Ln+CkdQqGF5yfjk8eWmyZEFDaMGCmwNBQ80XfJrjEcvugSEDd17M7/F8AGs2DpQv/ffIbCZveyWI4WZvVuS1ZbhkdFqBLaUSgoDVqUyv8UDIo6ekWiR57w0=
+  server: https://test.pypi.org/legacy/
+  on:
+    branch: master
+
+deploy:
+  # Tags release only are deployed on Pypi
+  provider: pypi
+  user: leboncoin
+  password:
+    # pypi_password
+    secure: Z5WEj3oDB/al2AiXuHwju31TWiRkLPfj49Bt0zxiUWtLdLXT/QKrRRxYucs2LYGCiC8YVYgieOcwZXqAfXXMb7LDkjLJJekLRWBPO2jQh9HKs4H61ps2o7QZgCPM07hirHGQomsEj+fpRgikNTAd+uuQKo6ExZdBi7lQLEH60ZpKZnCaQD6waTnmvKE/R/tpVsoLS1V47RG9YY1OqEK1jOQKcsb6RuJ8UEzVPFPhjG3fjMfTXHxAMlC6OgNL4Olii3uS2sxdT4rFKoY4m0NSMjOgbBU5gL47VPSexyZgrjc7/ixPCwDEuk6ND75ReY3EgMVUS0XhfvdXwpot/3otb75PidF67XlT6UozNFayhx2XQInvnBqfy1cCKYnuuistgBMfk18dr/xVTViyxgcZTZBCGA+tH3gEkBZhZH5CFbSxkBPf/1tuDQBDRZouEapPUbeVFXwP+IOWZt0bKIe/J5hz7+P8CFy5BmwBeLW1YRAaVko8bo+F5eTE8Hjp70bL4r05yYZRBcQlXMtjFjGOVFhbrI1VC/FcR1kiiP32VK3AD491cG3mR2eZeLivitI5hlU+OuvziWSjXEVwfU5ENBFT3XrjP8QpWV1W1WE00r7iJ3FwUC7u6+NQuZ9zFvnyujeGDhu5WYp7DSCeW1+wgBg2L/3YqappQkRfElTtGBg=
+  on:
+    tags: true
