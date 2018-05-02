@@ -16,7 +16,7 @@ setup(
     long_description=readme(),
     long_description_content_type='text/markdown',
 
-    version='0.1.0b1',
+    version_command='git describe --tags',
     author='SRE Team @leboncoin',
     author_email='opensource@leboncoin.fr',
 
@@ -65,8 +65,9 @@ setup(
         'pyyaml'
     ],
     setup_requires=[
+        'markdown',
         'pytest-runner',
-        'markdown'
+        'setuptools-version-command'
     ],
     tests_require=[
         'pytest',
